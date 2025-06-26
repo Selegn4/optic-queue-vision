@@ -1,16 +1,19 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { useCustomerOperations } from '@/hooks/useCustomerOperations';
 import { useToast } from '@/hooks/use-toast';
-import { useCustomers } from '@/contexts/CustomerContext';
+import { UserPlus, User, Phone, Mail, MapPin, Calendar, Briefcase, Eye } from 'lucide-react';
 
 const CustomerRegistration = () => {
-  const { addCustomer } = useCustomers();
+  const { addCustomer } = useCustomerOperations();
+  const { toast } = useToast();
+  
   const [formData, setFormData] = useState({
     name: '',
     contactNumber: '',
@@ -28,299 +31,258 @@ const CustomerRegistration = () => {
       pd: '',
       add: ''
     },
-    gradeType: '',
-    lensType: '',
-    frameCode: '',
-    estimatedTime: '',
-    paymentInfo: {
-      mode: '',
-      amount: ''
-    },
     remarks: '',
-    priority: {
-      seniorCitizen: false,
-      pregnant: false,
-      pwd: false
-    }
+    priorityType: 'Regular'
   });
 
-  const { toast } = useToast();
-
-  // Sales Agent options
-  const salesAgents = ['Ace', 'Yhel', 'Jil', 'Mel', 'Jeselle', 'Eric', 'John'];
-
-  // ST-206: Grade Type options
-  const gradeTypes = [
-    'No Grade',
-    'Single Grade (SV)',
-    'Single Vision-Reading (SV-READING)',
-    'Single Vision Hi-Cylinder (SV-HC)',
-    'Process Single Vision (PROC-SV)',
-    'Progressive (PROG)',
-    'Process-Progressive (PROC-PROG)',
-    'Doble Vista (KK)',
-    'Process Doble Vista (PROC-KK)',
-    'Single Vision-Ultra Thin 1.61 (SV-UTH 1.61)',
-    'Single Vision-Ultra Thin 1.67 (SV-UTH 1.67)',
-    'Flat-Top (F.T)',
-    'Process Flat-Top (Proc-F.T)',
-    'Ultra-Thin High Cylinder 1.61 (UTH 1.61 HC)',
-    'Ultra-Thin High Cylinder 1.67 (UTH 1.67 HC)',
-    'Process High Cylinder Ultra Thin 1.61 (PROC-HC-UTH 1.61)',
-    'Process High Cylinder Ultra Thin 1.67 (PROC-HC-UTH 1.67)',
-    'Other'
-  ];
-
-  // ST-207: Lens Type options
-  const lensTypes = [
-    'Non-coated (ORD)',
-    'Anti-radiation (MC)',
-    'Photochromic anti-radiation (TRG)',
-    'Anti-blue light (BB)',
-    'Photochromic anti-blue light (BTS)',
-    'Ambermatic tinted (AMB)',
-    'Essilor',
-    'Hoya'
-  ];
-
-  const paymentModes = ['Cash', 'Gcash', 'Maya', 'Bank Transfer', 'Credit Card'];
-
-  // Handle prescription input (numerical only)
-  const handlePrescriptionChange = (field: string, value: string) => {
-    // Allow numbers, decimals, negative signs, and common prescription symbols
-    const prescriptionRegex = /^[-+]?[0-9]*\.?[0-9]*$/;
-    if (prescriptionRegex.test(value) || value === '') {
-      setFormData({
-        ...formData,
-        prescription: { ...formData.prescription, [field]: value }
-      });
+  const handleInputChange = (field: string, value: any) => {
+    if (field.startsWith('prescription.')) {
+      const prescriptionField = field.split('.')[1];
+      setFormData(prev => ({
+        ...prev,
+        prescription: {
+          ...prev.prescription,
+          [prescriptionField]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // ST-201: Validation for required fields including new Assigned Doctor field
-    const requiredFields = ['name', 'contactNumber', 'email', 'age', 'address', 'assignedDoctor', 'salesAgent'];
-    const missingFields = requiredFields.filter(field => {
-      if (field === 'assignedDoctor' || field === 'salesAgent') {
-        return !formData[field as keyof typeof formData];
-      }
-      return !formData[field as keyof typeof formData];
-    });
-    
-    if (missingFields.length > 0) {
+    if (!formData.name || !formData.contactNumber) {
       toast({
-        title: "Missing Required Fields",
-        description: `Please fill in: ${missingFields.join(', ')}`,
+        title: "Error",
+        description: "Name and contact number are required",
         variant: "destructive"
       });
       return;
     }
 
-    // ST-208: Frame Code validation (alphanumeric only)
-    if (formData.frameCode && !/^[a-zA-Z0-9]+$/.test(formData.frameCode)) {
+    try {
+      const customerData = {
+        name: formData.name,
+        contactNumber: formData.contactNumber,
+        email: formData.email,
+        age: formData.age ? parseInt(formData.age) : 0,
+        address: formData.address,
+        occupation: formData.occupation,
+        distribution: formData.distribution,
+        salesAgent: formData.salesAgent,
+        assignedDoctor: formData.assignedDoctor,
+        prescription: formData.prescription,
+        remarks: formData.remarks,
+        priorityType: formData.priorityType,
+        waitTime: 0,
+        status: 'waiting' as const,
+        orNumber: ''
+      };
+
+      await addCustomer(customerData);
+      
+      // Reset form
+      setFormData({
+        name: '',
+        contactNumber: '',
+        email: '',
+        age: '',
+        address: '',
+        occupation: '',
+        distribution: '',
+        salesAgent: '',
+        assignedDoctor: '',
+        prescription: {
+          od: '',
+          os: '',
+          ou: '',
+          pd: '',
+          add: ''
+        },
+        remarks: '',
+        priorityType: 'Regular'
+      });
+
       toast({
-        title: "Invalid Frame Code",
-        description: "Frame Code must contain only letters and numbers",
+        title: "Success",
+        description: "Customer registered successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to register customer",
         variant: "destructive"
       });
-      return;
     }
-
-    // Determine priority status
-    const isPriority = formData.priority.seniorCitizen || formData.priority.pregnant || formData.priority.pwd;
-    let priorityType = '';
-    if (formData.priority.seniorCitizen) priorityType = 'Senior Citizen';
-    else if (formData.priority.pregnant) priorityType = 'Pregnant';
-    else if (formData.priority.pwd) priorityType = 'PWD';
-
-    // Add customer to the queue using context
-    addCustomer({
-      name: formData.name,
-      contactNumber: formData.contactNumber,
-      email: formData.email,
-      age: parseInt(formData.age),
-      address: formData.address,
-      occupation: formData.occupation,
-      distribution: formData.distribution,
-      salesAgent: formData.salesAgent,
-      assignedDoctor: formData.assignedDoctor,
-      prescription: formData.prescription,
-      gradeType: formData.gradeType,
-      lensType: formData.lensType,
-      frameCode: formData.frameCode,
-      paymentInfo: formData.paymentInfo,
-      remarks: formData.remarks,
-      priority: isPriority,
-      priorityType: priorityType
-    });
-    
-    toast({
-      title: "Customer Registered Successfully",
-      description: "Customer has been added to the queue and token will be printed automatically."
-    });
-    
-    // Reset form
-    setFormData({
-      name: '',
-      contactNumber: '',
-      email: '',
-      age: '',
-      address: '',
-      occupation: '',
-      distribution: '',
-      salesAgent: '',
-      assignedDoctor: '',
-      prescription: { od: '', os: '', ou: '', pd: '', add: '' },
-      gradeType: '',
-      lensType: '',
-      frameCode: '',
-      estimatedTime: '',
-      paymentInfo: { mode: '', amount: '' },
-      remarks: '',
-      priority: { seniorCitizen: false, pregnant: false, pwd: false }
-    });
   };
 
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800">Customer Registration</h2>
+        <p className="text-gray-600">Register new customers for queue management</p>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-orange-500">Customer Registration</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            New Customer Registration
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* ST-201: Required Personal Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Personal Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    placeholder="Enter customer name"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="contactNumber">Contact Number *</Label>
-                  <Input
-                    id="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={(e) => setFormData({...formData, contactNumber: e.target.value})}
-                    placeholder="Enter contact number"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    placeholder="Enter email address"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="age">Age *</Label>
-                  <Input
-                    id="age"
-                    type="number"
-                    value={formData.age}
-                    onChange={(e) => setFormData({...formData, age: e.target.value})}
-                    placeholder="Enter age"
-                    required
-                  />
-                </div>
-              </div>
-
+            {/* Basic Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="address">Address *</Label>
+                <Label htmlFor="name" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Full Name *
+                </Label>
                 <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({...formData, address: e.target.value})}
-                  placeholder="Enter complete address"
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  placeholder="Enter customer's full name"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* ST-202: Optional Occupation */}
-                <div className="space-y-2">
-                  <Label htmlFor="occupation">Occupation</Label>
-                  <Input
-                    id="occupation"
-                    value={formData.occupation}
-                    onChange={(e) => setFormData({...formData, occupation: e.target.value})}
-                    placeholder="Enter occupation (optional)"
-                  />
-                </div>
-                
-                {/* ST-203: Distribution Information */}
-                <div className="space-y-2">
-                  <Label htmlFor="distribution">Distribution Method</Label>
-                  <Select value={formData.distribution} onValueChange={(value) => setFormData({...formData, distribution: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select distribution method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pickup">Pick Up</SelectItem>
-                      <SelectItem value="lalamove">Lalamove</SelectItem>
-                      <SelectItem value="lbc">LBC</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* New Required Field: Assigned Doctor */}
-                <div className="space-y-2">
-                  <Label htmlFor="assignedDoctor">Assigned Doctor *</Label>
-                  <Input
-                    id="assignedDoctor"
-                    value={formData.assignedDoctor}
-                    onChange={(e) => setFormData({...formData, assignedDoctor: e.target.value})}
-                    placeholder="Enter assigned doctor name"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactNumber" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Contact Number *
+                </Label>
+                <Input
+                  id="contactNumber"
+                  value={formData.contactNumber}
+                  onChange={(e) => handleInputChange('contactNumber', e.target.value)}
+                  placeholder="Enter contact number"
+                  required
+                />
               </div>
 
-              {/* ST-204: Sales Agent - Updated to dropdown */}
               <div className="space-y-2">
-                <Label htmlFor="salesAgent">Sales Agent *</Label>
-                <Select value={formData.salesAgent} onValueChange={(value) => setFormData({...formData, salesAgent: value})}>
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  placeholder="Enter email address"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="age" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Age
+                </Label>
+                <Input
+                  id="age"
+                  type="number"
+                  value={formData.age}
+                  onChange={(e) => handleInputChange('age', e.target.value)}
+                  placeholder="Enter age"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Address
+              </Label>
+              <Textarea
+                id="address"
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                placeholder="Enter complete address"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="occupation" className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Occupation
+                </Label>
+                <Input
+                  id="occupation"
+                  value={formData.occupation}
+                  onChange={(e) => handleInputChange('occupation', e.target.value)}
+                  placeholder="Enter occupation"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="salesAgent">Sales Agent</Label>
+                <Select value={formData.salesAgent} onValueChange={(value) => handleInputChange('salesAgent', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select sales agent" />
                   </SelectTrigger>
                   <SelectContent>
-                    {salesAgents.map((agent) => (
-                      <SelectItem key={agent} value={agent}>{agent}</SelectItem>
-                    ))}
+                    <SelectItem value="ace">Ace</SelectItem>
+                    <SelectItem value="yhel">Yhel</SelectItem>
+                    <SelectItem value="jil">Jil</SelectItem>
+                    <SelectItem value="mel">Mel</SelectItem>
+                    <SelectItem value="jeselle">Jeselle</SelectItem>
+                    <SelectItem value="eric">Eric</SelectItem>
+                    <SelectItem value="john">John</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* ST-205: Prescription Information - Updated for numerical only */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="assignedDoctor">Assigned Doctor</Label>
+                <Input
+                  id="assignedDoctor"
+                  value={formData.assignedDoctor}
+                  onChange={(e) => handleInputChange('assignedDoctor', e.target.value)}
+                  placeholder="Enter assigned doctor"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="priorityType">Priority Type</Label>
+                <Select value={formData.priorityType} onValueChange={(value) => handleInputChange('priorityType', value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Regular">Regular</SelectItem>
+                    <SelectItem value="Priority">Priority</SelectItem>
+                    <SelectItem value="Emergency">Emergency</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Prescription Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Prescription Details (Numerical Only)</h3>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Prescription Details
+              </h3>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="od">OD (Right Eye)</Label>
                   <Input
                     id="od"
                     value={formData.prescription.od}
-                    onChange={(e) => handlePrescriptionChange('od', e.target.value)}
-                    placeholder="0.00"
-                    pattern="^[-+]?[0-9]*\.?[0-9]*$"
+                    onChange={(e) => handleInputChange('prescription.od', e.target.value)}
+                    placeholder="e.g., -2.00"
                   />
                 </div>
                 <div className="space-y-2">
@@ -328,9 +290,8 @@ const CustomerRegistration = () => {
                   <Input
                     id="os"
                     value={formData.prescription.os}
-                    onChange={(e) => handlePrescriptionChange('os', e.target.value)}
-                    placeholder="0.00"
-                    pattern="^[-+]?[0-9]*\.?[0-9]*$"
+                    onChange={(e) => handleInputChange('prescription.os', e.target.value)}
+                    placeholder="e.g., -1.75"
                   />
                 </div>
                 <div className="space-y-2">
@@ -338,9 +299,8 @@ const CustomerRegistration = () => {
                   <Input
                     id="ou"
                     value={formData.prescription.ou}
-                    onChange={(e) => handlePrescriptionChange('ou', e.target.value)}
-                    placeholder="0.00"
-                    pattern="^[-+]?[0-9]*\.?[0-9]*$"
+                    onChange={(e) => handleInputChange('prescription.ou', e.target.value)}
+                    placeholder="e.g., -2.00"
                   />
                 </div>
                 <div className="space-y-2">
@@ -348,9 +308,8 @@ const CustomerRegistration = () => {
                   <Input
                     id="pd"
                     value={formData.prescription.pd}
-                    onChange={(e) => handlePrescriptionChange('pd', e.target.value)}
-                    placeholder="00"
-                    pattern="^[0-9]*\.?[0-9]*$"
+                    onChange={(e) => handleInputChange('prescription.pd', e.target.value)}
+                    placeholder="e.g., 63"
                   />
                 </div>
                 <div className="space-y-2">
@@ -358,173 +317,27 @@ const CustomerRegistration = () => {
                   <Input
                     id="add"
                     value={formData.prescription.add}
-                    onChange={(e) => handlePrescriptionChange('add', e.target.value)}
-                    placeholder="0.00"
-                    pattern="^[+]?[0-9]*\.?[0-9]*$"
+                    onChange={(e) => handleInputChange('prescription.add', e.target.value)}
+                    placeholder="e.g., +1.25"
                   />
                 </div>
               </div>
             </div>
 
-            {/* ST-206 & ST-207: Grade Type and Lens Type */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Lens Specifications</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gradeType">Grade Type</Label>
-                  <Select value={formData.gradeType} onValueChange={(value) => setFormData({...formData, gradeType: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select grade type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {gradeTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="lensType">Lens Type</Label>
-                  <Select value={formData.lensType} onValueChange={(value) => setFormData({...formData, lensType: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select lens type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {lensTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* ST-208 & ST-209: Frame Code and Estimated Time */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="frameCode">Frame Code</Label>
-                <Input
-                  id="frameCode"
-                  value={formData.frameCode}
-                  onChange={(e) => setFormData({...formData, frameCode: e.target.value})}
-                  placeholder="Alphanumeric only"
-                  pattern="[a-zA-Z0-9]*"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="estimatedTime">Estimated Time (minutes)</Label>
-                <Input
-                  id="estimatedTime"
-                  type="number"
-                  value={formData.estimatedTime}
-                  onChange={(e) => setFormData({...formData, estimatedTime: e.target.value})}
-                  placeholder="Enter time in minutes"
-                />
-              </div>
-            </div>
-
-            {/* ST-210: Payment Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Payment Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMode">Payment Mode</Label>
-                  <Select value={formData.paymentInfo.mode} onValueChange={(value) => setFormData({...formData, paymentInfo: {...formData.paymentInfo, mode: value}})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentModes.map((mode) => (
-                        <SelectItem key={mode} value={mode}>{mode}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    value={formData.paymentInfo.amount}
-                    onChange={(e) => setFormData({...formData, paymentInfo: {...formData.paymentInfo, amount: e.target.value}})}
-                    placeholder="Enter amount"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ST-211: Remarks */}
             <div className="space-y-2">
               <Label htmlFor="remarks">Remarks</Label>
               <Textarea
                 id="remarks"
                 value={formData.remarks}
-                onChange={(e) => setFormData({...formData, remarks: e.target.value})}
-                placeholder="Enter any additional remarks (optional)"
+                onChange={(e) => handleInputChange('remarks', e.target.value)}
+                placeholder="Any additional notes or remarks"
                 rows={3}
               />
             </div>
 
-            {/* ST-212: Priority Queue */}
-            <div className="space-y-3">
-              <Label>Priority Queue (if applicable)</Label>
-              <div className="flex gap-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="seniorCitizen"
-                    checked={formData.priority.seniorCitizen}
-                    onCheckedChange={(checked) => 
-                      setFormData({
-                        ...formData, 
-                        priority: {...formData.priority, seniorCitizen: !!checked}
-                      })
-                    }
-                  />
-                  <Label htmlFor="seniorCitizen">Senior Citizen</Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="pregnant"
-                    checked={formData.priority.pregnant}
-                    onCheckedChange={(checked) => 
-                      setFormData({
-                        ...formData, 
-                        priority: {...formData.priority, pregnant: !!checked}
-                      })
-                    }
-                  />
-                  <Label htmlFor="pregnant">Pregnant</Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="pwd"
-                    checked={formData.priority.pwd}
-                    onCheckedChange={(checked) => 
-                      setFormData({
-                        ...formData, 
-                        priority: {...formData.priority, pwd: !!checked}
-                      })
-                    }
-                  />
-                  <Label htmlFor="pwd">PWD</Label>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button type="button" variant="outline" className="flex-1">
-                Save as Draft
-              </Button>
-              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600">
-                Register Customer & Print Token
-              </Button>
-            </div>
+            <Button type="submit" className="w-full">
+              Register Customer
+            </Button>
           </form>
         </CardContent>
       </Card>

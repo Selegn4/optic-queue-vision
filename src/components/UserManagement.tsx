@@ -9,83 +9,56 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { User, UserPlus, Mail, Shield } from 'lucide-react';
 
 interface UserProfile {
   id: string;
   email: string;
-  full_name: string;
+  name: string;
   role: 'admin' | 'sales_employee' | 'cashier';
   created_at: string;
 }
 
 const UserManagement = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [newUser, setNewUser] = useState({
+    name: '',
     email: '',
-    password: '',
-    fullName: '',
-    role: 'sales_employee' as 'admin' | 'sales_employee' | 'cashier'
+    role: 'sales_employee' as 'admin' | 'sales_employee' | 'cashier',
+    password: ''
   });
   const [isCreating, setIsCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
-  const { hasRole } = useAuth();
 
+  // Mock data for demonstration
   useEffect(() => {
-    fetchUsers();
+    const mockUsers: UserProfile[] = [
+      { id: '1', email: 'admin@escaoptical.com', name: 'System Administrator', role: 'admin', created_at: '2025-01-01' },
+      { id: '2', email: 'ace@escaoptical.com', name: 'Ace', role: 'sales_employee', created_at: '2025-01-02' },
+      { id: '3', email: 'yhel@escaoptical.com', name: 'Yhel', role: 'sales_employee', created_at: '2025-01-02' },
+      { id: '4', email: 'jil@escaoptical.com', name: 'Jil', role: 'sales_employee', created_at: '2025-01-02' },
+      { id: '5', email: 'mel@escaoptical.com', name: 'Mel', role: 'sales_employee', created_at: '2025-01-02' },
+      { id: '6', email: 'jeselle@escaoptical.com', name: 'Jeselle', role: 'sales_employee', created_at: '2025-01-02' },
+      { id: '7', email: 'eric@escaoptical.com', name: 'Eric', role: 'sales_employee', created_at: '2025-01-02' },
+      { id: '8', email: 'john@escaoptical.com', name: 'John', role: 'sales_employee', created_at: '2025-01-02' },
+      { id: '9', email: 'cashier@escaoptical.com', name: 'Cashier', role: 'cashier', created_at: '2025-01-03' },
+    ];
+    setUsers(mockUsers);
   }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateUserRole = async (userId: string, newRole: 'admin' | 'sales_employee' | 'cashier') => {
     try {
-      // Update profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
-
-      if (profileError) throw profileError;
-
-      // Update user_roles table
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .update({ role: newRole })
-        .eq('user_id', userId);
-
-      if (roleError) throw roleError;
-
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, role: newRole } : user
+      ));
+      
       toast({
         title: "Success",
         description: "User role updated successfully"
       });
-
-      fetchUsers();
     } catch (error) {
-      console.error('Error updating user role:', error);
       toast({
         title: "Error",
         description: "Failed to update user role",
@@ -95,7 +68,7 @@ const UserManagement = () => {
   };
 
   const createUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.fullName) {
+    if (!newUser.email || !newUser.password || !newUser.name) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -106,31 +79,27 @@ const UserManagement = () => {
 
     setIsCreating(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const newUserData: UserProfile = {
+        id: (users.length + 1).toString(),
         email: newUser.email,
-        password: newUser.password,
-        options: {
-          data: {
-            full_name: newUser.fullName,
-          },
-        },
-      });
+        name: newUser.name,
+        role: newUser.role,
+        created_at: new Date().toISOString().split('T')[0]
+      };
 
-      if (error) throw error;
+      setUsers(prev => [...prev, newUserData]);
 
       toast({
         title: "Success",
         description: "User created successfully!"
       });
 
-      setNewUser({ email: '', password: '', fullName: '', role: 'sales_employee' });
+      setNewUser({ email: '', password: '', name: '', role: 'sales_employee' });
       setDialogOpen(false);
-      fetchUsers();
     } catch (error: any) {
-      console.error('Error creating user:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: "Failed to create user",
         variant: "destructive"
       });
     } finally {
@@ -156,18 +125,6 @@ const UserManagement = () => {
     }
   };
 
-  if (!hasRole('admin')) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Access Denied</h2>
-          <p className="text-gray-600">Only administrators can access user management.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -189,11 +146,11 @@ const UserManagement = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="name">Full Name</Label>
                 <Input
-                  id="fullName"
-                  value={newUser.fullName}
-                  onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })}
+                  id="name"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter full name"
                 />
               </div>
@@ -203,7 +160,7 @@ const UserManagement = () => {
                   id="email"
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="Enter email address"
                 />
               </div>
@@ -213,13 +170,13 @@ const UserManagement = () => {
                   id="password"
                   type="password"
                   value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
                   placeholder="Enter password"
                 />
               </div>
               <div>
                 <Label htmlFor="role">Role</Label>
-                <Select value={newUser.role} onValueChange={(value: 'admin' | 'sales_employee' | 'cashier') => setNewUser({ ...newUser, role: value })}>
+                <Select value={newUser.role} onValueChange={(value: 'admin' | 'sales_employee' | 'cashier') => setNewUser(prev => ({ ...prev, role: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -265,7 +222,7 @@ const UserManagement = () => {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.full_name}</TableCell>
+                    <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-gray-400" />
                       {user.email}
@@ -305,27 +262,27 @@ const UserManagement = () => {
 
       <Card className="bg-blue-50 border-blue-200">
         <CardHeader>
-          <CardTitle className="text-blue-800">Demo Account Credentials</CardTitle>
+          <CardTitle className="text-blue-800">Account Credentials</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-lg border">
               <h4 className="font-semibold text-red-600 mb-2">👑 Admin Account</h4>
-              <p className="text-sm"><strong>Email:</strong> admin@escaoptical.com</p>
-              <p className="text-sm"><strong>Password:</strong> admin123</p>
+              <p className="text-sm"><strong>Username:</strong> admin</p>
+              <p className="text-sm"><strong>Password:</strong> admin</p>
               <p className="text-xs text-gray-500 mt-2">Full system access</p>
             </div>
             <div className="bg-white p-4 rounded-lg border">
-              <h4 className="font-semibold text-blue-600 mb-2">👥 Sales Employee</h4>
-              <p className="text-sm"><strong>Email:</strong> staff@escaoptical.com</p>
-              <p className="text-sm"><strong>Password:</strong> staff123</p>
+              <h4 className="font-semibold text-blue-600 mb-2">👥 Sales Employees</h4>
+              <p className="text-sm">Ace, Yhel, Jil, Mel, Jeselle, Eric, John</p>
+              <p className="text-sm"><strong>Password:</strong> sales123</p>
               <p className="text-xs text-gray-500 mt-2">Customer & queue management</p>
             </div>
             <div className="bg-white p-4 rounded-lg border">
               <h4 className="font-semibold text-green-600 mb-2">💰 Cashier Account</h4>
-              <p className="text-sm"><strong>Email:</strong> viewer@escaoptical.com</p>
-              <p className="text-sm"><strong>Password:</strong> viewer123</p>
-              <p className="text-xs text-gray-500 mt-2">Transaction processing</p>
+              <p className="text-sm"><strong>Username:</strong> cashier</p>
+              <p className="text-sm"><strong>Password:</strong> cashier123</p>
+              <p className="text-xs text-gray-500 mt-2">View-only access</p>
             </div>
           </div>
         </CardContent>

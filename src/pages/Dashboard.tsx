@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('admin');
-  const { userProfile } = useAuth();
+  const { user } = useAuth();
 
   const renderMainContent = () => {
     switch (activeTab) {
@@ -42,7 +42,7 @@ const Dashboard = () => {
         <Header 
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
-          userRole={userProfile?.role || 'viewer'} 
+          userRole={user?.role || 'cashier'} 
         />
         
         <main className="p-6">
@@ -54,7 +54,7 @@ const Dashboard = () => {
         {/* Footer */}
         <footer className="bg-white border-t border-gray-200 p-4">
           <div className="max-w-7xl mx-auto text-center text-sm text-gray-500">
-            © 2025 Esca Optical - Queue Management System | {userProfile?.role?.toUpperCase()} Access
+            © 2025 Esca Optical - Queue Management System | {user?.role?.toUpperCase()} Access
           </div>
         </footer>
       </div>
